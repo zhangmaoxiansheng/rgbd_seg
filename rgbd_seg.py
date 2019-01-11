@@ -141,16 +141,41 @@ class PSPNet101(PSPNet):
         PSPNet.__init__(self, nb_classes=nb_classes, resnet_layers=101,
                         input_shape=input_shape, weights=weights)
 
-def using_depth_refined(img):
+def using_depth_refined(img,thres = 215):
     #large than 200, smaller than 50 = 0
-    ret,thresh1 = cv.threshold(img,200,255,cv.THRESH_TOZERO_INV)
+    ret,thresh1 = cv.threshold(img,215,255,cv.THRESH_TOZERO_INV)
     ret2,thresh2 = cv.threshold(thresh1,50,255,cv.THRESH_BINARY)
     thresh3 = cv.resize(thresh2,(768,636))
     dilated_res = cv.dilate(thresh3,(5,5))
 
     return dilated_res
 
-
+def test_res(cm,mask):
+    cm = cm.astype(np.uint8)
+    contours, hierarchy = cv.findContours(cm,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+    max_area = 0
+    index = 0
+    for i in range(0,len(contours)):
+        area = cv.contourArea(contours[i])
+        if(area > max_area):
+            max_area = area
+            index = i
+    final_contours = contours[index]
+    x, y, w, h = cv.boundingRect(final_contours) 
+    equal_ = cm[y:y+h,x:x+w] != mask[y:y+h,x:x+w]
+    r = equal_.sum()
+    r = r - np.sum(mask == 0)
+    r = float(r)/(h*w)
+    if(r > 0.05):
+        h = int(h-h/3)
+        d_w = int(0.2*w)
+        cm[y:y+h,x-d_w:x+w+d_w] = mask[y:y+h,x-d_w:x+w+d_w] + cm[y:y+h,x-d_w:x+w+d_w]
+        cm[cm > 0] = 255
+        cm = cv.erode(cm,(5,5))
+        cm = cv.dilate(cm,(5,5))
+        
+    return cm
+     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--model', type=str, default='pspnet101_voc2012',
@@ -159,13 +184,13 @@ if __name__ == "__main__":
                                  'pspnet101_cityscapes',
                                  'pspnet101_voc2012'])
     parser.add_argument('-w', '--weights', type=str, default=None)
-    parser.add_argument('-i', '--input_path', type=str, default='example_images/fid_1.png',
+    parser.add_argument('-i', '--input_path', type=str, default='./1_rgb/fid_1477.png',
                         help='Path the input image')
-    parser.add_argument('-id','--input_depth_path',type=str,default='depth/fid_1.png')
-    parser.add_argument('-g', '--glob_path', type=str, default="./1_rgb/*.png",
+    parser.add_argument('-id','--input_depth_path',type=str,default='./1_depth/fid_1477.png')
+    parser.add_argument('-g', '--glob_path', type=str, default=None,
                         help='Glob path for multiple images')
-    parser.add_argument('-gd','--glob_depth_path',type=str,default="./1_depth/*.png")
-    parser.add_argument('-o', '--output_path', type=str, default='RGBD_RES/',
+    parser.add_argument('-gd','--glob_depth_path',type=str,default=None)
+    parser.add_argument('-o', '--output_path', type=str, default='example_result/1477.png',
                         help='Path to output')
     parser.add_argument('--id', default="0")
     parser.add_argument('--input_size', type=int, default=500)
@@ -239,9 +264,10 @@ if __name__ == "__main__":
             cm[cm == 15] = 1
             
             cm = np.multiply(cm,mask)
-            
-            
-            
+            cm = test_res(cm,mask)
+            cm = cv.medianBlur(cm,5)
+            cv.imshow("cm",cm)
+            cv.waitKey(0)      
             misc.imsave(filename + "_seg_read" + ext, cm)
             #misc.imsave(filename + "_seg" + ext, color_cm)
             #misc.imsave(filename + "_probs" + ext, pm)

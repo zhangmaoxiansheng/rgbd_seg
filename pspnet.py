@@ -151,7 +151,7 @@ if __name__ == "__main__":
     parser.add_argument('-w', '--weights', type=str, default=None)
     parser.add_argument('-i', '--input_path', type=str, default='example_images/ade20k.jpg',
                         help='Path the input image')
-    parser.add_argument('-g', '--glob_path', type=str, default='./test_rgb/*.png',
+    parser.add_argument('-g', '--glob_path', type=str, default=None,
                         help='Glob path for multiple images')
     parser.add_argument('-o', '--output_path', type=str, default='example_results/',
                         help='Path to output')
