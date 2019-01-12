@@ -2,6 +2,8 @@
 
 Implemented Architecture of Pyramid Scene Parsing Network in Keras.Ane using depth information to refine the mask.
 (However, in this case the depth result is more reliable. Actually, maybe using PSPnet to fine the depth result is a better way)
+rgbd_seg : the depth threshold is fixed.
+rgbg_seg_flexible : the depth threshold is flexible.
 
 ### Setup
 1. Install dependencies:
@@ -40,9 +42,9 @@ python weight_converter.py <path to .prototxt> <path to .caffemodel>
 
 for large dataset
 ```bash
-python rgbd_seg.py -m <model> -g <./rgb_folder/*.png> -gd<./depth_folder/*.png> -o <output_path>
-
-python rgbd_seg.py -m <model> -i <input_image>  -id <input_depth> -o <output_path>
+python rgbd_seg.py -m <model> -g <./rgb_folder/*.png> -gd<./depth_folder/*.png> -o <output_path1>
+-o1 <output_path2>
+python rgbd_seg.py -m <model> -i <input_image>  -id <input_depth> -o <output_path> -o2<output_path2>
 
 List of arguments:
 ```bash

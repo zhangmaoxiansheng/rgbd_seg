@@ -1,6 +1,7 @@
 import numpy as np
 
-cm = np.array([1,2,3,4,5,6,7,7,7,7])
+cm = np.array([[1,2,3,4,5],[6,7,7,7,7]])
+print cm[1,4]
 
 cm[cm != 7] = 0
 cm[cm == 7] = 1

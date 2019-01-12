@@ -2,14 +2,17 @@ import cv2 as cv
 import numpy as np
 
 
-img = cv.imread("./1_depth/fid_1477.png",0)
-img_ = cv.imread("./1_depth/fid_1477.png")
+img = cv.imread("./1_depth/fid_1.png",0)
+img_ = cv.imread("./1_depth/fid_1.png")
 img_res = cv.imread("./example_result/1477_seg_read.png",0)
 img_ = cv.resize(img_,(768,636))
-ret,thresh1 = cv.threshold(img,215,255,cv.THRESH_TOZERO_INV)#larger than 200 = 0 
+ret,thresh1 = cv.threshold(img,188,255,cv.THRESH_TOZERO_INV)#larger than 200 = 0 
 ret2,thresh2 = cv.threshold(thresh1,50,255,cv.THRESH_BINARY)#smaller that 50 = 0
 thresh3 = cv.resize(thresh2,(768,636))
 dilated_res = cv.dilate(thresh3,(5,5))
+cv.imshow("z",dilated_res)
+cv.waitKey(0)
+
 
 contours, hierarchy = cv.findContours(img_res,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)  
 

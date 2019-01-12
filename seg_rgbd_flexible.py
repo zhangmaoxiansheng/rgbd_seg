@@ -15,6 +15,7 @@ from python_utils.preprocessing import preprocess_img
 from keras.utils.generic_utils import CustomObjectScope
 import scipy.io
 import cv2 as cv
+from sklearn.cluster import KMeans
 
 # These are the means for the ImageNet pretrained ResNet
 DATA_MEAN = np.array([[[123.68, 116.779, 103.939]]])  # RGB order
@@ -167,7 +168,7 @@ def test_res(cm,mask):
     x, y, w, h = cv.boundingRect(final_contours) 
     equal_ = cm[y:y+h,x:x+w] != mask[y:y+h,x:x+w]
     r = equal_.sum()
-    #r = r - np.sum(mask[y:y+h,x:x+w] == 0)
+    r = r - np.sum(mask[y:y+h,x:x+w] == 0)
     r = float(r)/(h*w)
     if(r > 0.03):
         head = int(h/5)
@@ -183,7 +184,42 @@ def test_res(cm,mask):
         cm = cv.dilate(cm,(5,5))
         
     return cm,r
-     
+def get_threshold(img,dep):
+    index1,index2 = np.where(img>0)
+
+    index1 = index1/1.5
+    index2 = index2/1.5
+
+    index1 = index1.astype('int64')
+    index2 = index2.astype('int64')
+
+    X = np.zeros(len(index1))
+    for i in range(len(index1)):
+        X[i] = dep[index1[i],index2[i]]
+    X = X[np.nonzero(X)]
+    X = X.reshape(-1,1)
+
+    km = KMeans(n_clusters=2)
+
+    km.fit(X)
+
+    labels = km.labels_
+    cluster_centers = km.cluster_centers_
+
+    n_clusters_ = len(np.unique(labels))
+    #print n_clusters_
+    min_ = 255
+    for i in range(n_clusters_):
+        #cluster_center = cluster_centers[i]
+        #print(cluster_center)
+        my_member_ind = labels == i
+        my_member = X[my_member_ind]
+        max_current = my_member.max()
+        if(max_current < min_):
+            min_ = max_current
+        #print(max_)
+    return min_
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--model', type=str, default='pspnet101_voc2012',
@@ -254,7 +290,7 @@ if __name__ == "__main__":
             cimg = misc.imresize(img, (args.input_size, args.input_size))
 
             mask = using_depth_refined(depth_img)
-            img = cv.add(img,np.zeros(np.shape(img),dtype=np.uint8),mask=mask)
+            #img = cv.add(img,np.zeros(np.shape(img),dtype=np.uint8),mask=mask)
 
             probs = pspnet.predict(img, args.flip)
 
@@ -277,7 +313,10 @@ if __name__ == "__main__":
             cm[cm != 15] = 0
             cm[cm == 15] = 255
             cm = cm.astype(np.uint8)
-            #cm = np.multiply(cm,mask)
+            
+            thresh = get_threshold(cm,depth_img)
+            mask = using_depth_refined(depth_img,thresh)
+            cm = np.multiply(cm,mask)
             cm,r = test_res(cm,mask)
             cm = cv.medianBlur(cm,5)
             cm_dep = cv.resize(cm,(512,424))
