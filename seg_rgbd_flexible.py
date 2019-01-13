@@ -157,7 +157,7 @@ def test_res(cm,mask):
     max_area = 0
     index = 0
     if len(contours) == 0:
-        return cm
+        return cm,0
 
     for i in range(0,len(contours)):
         area = cv.contourArea(contours[i])
@@ -168,11 +168,11 @@ def test_res(cm,mask):
     x, y, w, h = cv.boundingRect(final_contours) 
     equal_ = cm[y:y+h,x:x+w] != mask[y:y+h,x:x+w]
     r = equal_.sum()
-    r = r - np.sum(mask[y:y+h,x:x+w] == 0)
+    #r = r - np.sum(mask[y:y+h,x:x+w] == 0)
     r = float(r)/(h*w)
-    if(r > 0.03):
+    if(r > 0.015):
         head = int(h/5)
-        h = int(h-h/3)
+        h = int(h-h/4)
         d_w = int(0.2*w)
         if(x-d_w <= 0):
             d_w = x
@@ -210,14 +210,14 @@ def get_threshold(img,dep):
     #print n_clusters_
     min_ = 255
     for i in range(n_clusters_):
-        #cluster_center = cluster_centers[i]
-        #print(cluster_center)
-        my_member_ind = labels == i
-        my_member = X[my_member_ind]
-        max_current = my_member.max()
-        if(max_current < min_):
-            min_ = max_current
-        #print(max_)
+        if(cluster_centers[i] < min_):
+            min_ = cluster_centers[i]
+            r_label = i
+    
+    my_member_ind = labels == r_label
+    my_members  = X[my_member_ind]
+    min_ = my_members.max()
+
     return min_
 
 if __name__ == "__main__":
@@ -228,15 +228,15 @@ if __name__ == "__main__":
                                  'pspnet101_cityscapes',
                                  'pspnet101_voc2012'])
     parser.add_argument('-w', '--weights', type=str, default=None)
-    parser.add_argument('-i', '--input_path', type=str, default='./1_rgb/fid_95.png',
+    parser.add_argument('-i', '--input_path', type=str, default='./1_rgb/fid_244.png',
                         help='Path the input image')
-    parser.add_argument('-id','--input_depth_path',type=str,default='./1_depth/fid_95.png')
-    parser.add_argument('-g', '--glob_path', type=str, default='./2_rgb/*.png',
+    parser.add_argument('-id','--input_depth_path',type=str,default='./1_depth/fid_244.png')
+    parser.add_argument('-g', '--glob_path', type=str, default=None,
                         help='Glob path for multiple images')
-    parser.add_argument('-gd','--glob_depth_path',type=str,default='./2_depth/*.png')
-    parser.add_argument('-o', '--output_path', type=str, default='./nxp/rgb',
+    parser.add_argument('-gd','--glob_depth_path',type=str,default=None)
+    parser.add_argument('-o', '--output_path', type=str, default='./nxp/244.png',
                         help='Path to output rgb')
-    parser.add_argument('-o1', '--output_path1', type=str, default='./nxp/dep',
+    parser.add_argument('-o1', '--output_path1', type=str, default='./nxp/244d.png',
                         help='Path to output depth')
     parser.add_argument('--id', default="0")
     parser.add_argument('--input_size', type=int, default=500)
@@ -289,7 +289,7 @@ if __name__ == "__main__":
             depth_img = cv.imread(img_path[1],0)
             cimg = misc.imresize(img, (args.input_size, args.input_size))
 
-            mask = using_depth_refined(depth_img)
+            #mask = using_depth_refined(depth_img)
             #img = cv.add(img,np.zeros(np.shape(img),dtype=np.uint8),mask=mask)
 
             probs = pspnet.predict(img, args.flip)
@@ -307,29 +307,31 @@ if __name__ == "__main__":
                 filename1 = join(args.output_path1,input_filename)
             else:
                 filename, ext = splitext(args.output_path)
+                filename1,ext = splitext(args.output_path1)
 
             #img = cv.imread("fid_1.png",0)
             
             cm[cm != 15] = 0
-            cm[cm == 15] = 255
+            cm[cm == 15] = 1
             cm = cm.astype(np.uint8)
             
             thresh = get_threshold(cm,depth_img)
+            print(thresh)
             mask = using_depth_refined(depth_img,thresh)
+            
             cm = np.multiply(cm,mask)
+            
             cm,r = test_res(cm,mask)
             cm = cv.medianBlur(cm,5)
+            
             cm_dep = cv.resize(cm,(512,424))
             nxp_img = cv.add(img, np.zeros(np.shape(img), dtype=np.uint8), mask=cm)
             nxp_dep = cv.add(depth_img,np.zeros(np.shape(depth_img),dtype=np.uint8),mask=cm_dep)
-            #cv.imshow("cm",cm)
-            #cv.waitKey(0)      
-            #misc.imsave(filename + "_seg_read" + ext, cm)
-            #misc.imsave(filename + "_seg" + ext, color_cm)
-            #misc.imsave(filename + "_probs" + ext, pm)
-            #misc.imsave(filename + "_seg_blended" + ext, alpha_blended)
-            print(filename)
+            print(r)
+            #cv.waitKey(0)
+            
             cv.imwrite(filename+"_res"+ext,nxp_img)
             #filename1 = "./nxp/dep"
             cv.imwrite(filename1+"_res"+ext,nxp_dep)
+            cv.imwrite(filename1+"mask"+ext,cm)
             #scipy.io.savemat(filename + 'probs.mat', {'probs': pm, 'labels': cm})

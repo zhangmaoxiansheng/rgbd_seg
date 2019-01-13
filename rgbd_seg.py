@@ -156,7 +156,7 @@ def test_res(cm,mask):
     max_area = 0
     index = 0
     if len(contours) == 0:
-        return cm
+        return cm,0
 
     for i in range(0,len(contours)):
         area = cv.contourArea(contours[i])
@@ -195,9 +195,9 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--input_path', type=str, default='./1_rgb/fid_95.png',
                         help='Path the input image')
     parser.add_argument('-id','--input_depth_path',type=str,default='./1_depth/fid_95.png')
-    parser.add_argument('-g', '--glob_path', type=str, default='./2_rgb/*.png',
+    parser.add_argument('-g', '--glob_path', type=str, default='./1_rgb/*.png',
                         help='Glob path for multiple images')
-    parser.add_argument('-gd','--glob_depth_path',type=str,default='./2_depth/*.png')
+    parser.add_argument('-gd','--glob_depth_path',type=str,default='./1_depth/*.png')
     parser.add_argument('-o', '--output_path', type=str, default='./nxp/rgb',
                         help='Path to output rgb')
     parser.add_argument('-o1', '--output_path1', type=str, default='./nxp/dep',
