@@ -198,7 +198,8 @@ def get_threshold(img,dep):
         X[i] = dep[index1[i],index2[i]]
     X = X[np.nonzero(X)]
     X = X.reshape(-1,1)
-
+    if( X is None):
+        return 215
     km = KMeans(n_clusters=2)
 
     km.fit(X)
@@ -231,12 +232,12 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--input_path', type=str, default='./1_rgb/fid_244.png',
                         help='Path the input image')
     parser.add_argument('-id','--input_depth_path',type=str,default='./1_depth/fid_244.png')
-    parser.add_argument('-g', '--glob_path', type=str, default=None,
+    parser.add_argument('-g', '--glob_path', type=str, default='./1_rgb/*.png',
                         help='Glob path for multiple images')
-    parser.add_argument('-gd','--glob_depth_path',type=str,default=None)
-    parser.add_argument('-o', '--output_path', type=str, default='./nxp/244.png',
+    parser.add_argument('-gd','--glob_depth_path',type=str,default='./1_depth/*.png')
+    parser.add_argument('-o', '--output_path', type=str, default='./nxp/rgb1',
                         help='Path to output rgb')
-    parser.add_argument('-o1', '--output_path1', type=str, default='./nxp/244d.png',
+    parser.add_argument('-o1', '--output_path1', type=str, default='./nxp/dep1',
                         help='Path to output depth')
     parser.add_argument('--id', default="0")
     parser.add_argument('--input_size', type=int, default=500)
