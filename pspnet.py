@@ -149,11 +149,11 @@ if __name__ == "__main__":
                                  'pspnet101_cityscapes',
                                  'pspnet101_voc2012'])
     parser.add_argument('-w', '--weights', type=str, default=None)
-    parser.add_argument('-i', '--input_path', type=str, default='example_images/ade20k.jpg',
+    parser.add_argument('-i', '--input_path', type=str, default='example_images/fid_1460res.png',
                         help='Path the input image')
     parser.add_argument('-g', '--glob_path', type=str, default=None,
                         help='Glob path for multiple images')
-    parser.add_argument('-o', '--output_path', type=str, default='example_results/',
+    parser.add_argument('-o', '--output_path', type=str, default='example_results/408.png',
                         help='Path to output')
     parser.add_argument('--id', default="0")
     parser.add_argument('--input_size', type=int, default=500)

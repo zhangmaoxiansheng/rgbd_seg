@@ -2,14 +2,15 @@ import cv2 as cv
 import numpy as np
 
 
-img = cv.imread("./1_depth/fid_244.png",0)
-img_ = cv.imread("./1_depth/fid_1.png")
-img_res = cv.imread("./example_result/1477_seg_read.png",0)
-img_ = cv.resize(img_,(768,636))
-ret,thresh1 = cv.threshold(img,179,255,cv.THRESH_TOZERO_INV)#larger than 200 = 0 
+img = cv.imread("./zmq1/dep/fid_409dep.png",-1)
+#img_ = cv.imread("./1_depth/fid_1.png")
+#img_res = cv.imread("./example_result/3734_seg_read.png",0)
+#img_ = cv.resize(img_,(768,636))
+ret,thresh1 = cv.threshold(img,3737,255,cv.THRESH_TOZERO_INV)#larger than 200 = 0 
 ret2,thresh2 = cv.threshold(thresh1,50,255,cv.THRESH_BINARY)#smaller that 50 = 0
 thresh3 = cv.resize(thresh2,(768,636))
 dilated_res = cv.dilate(thresh3,(5,5))
+cv.imwrite("z.png",dilated_res)
 cv.imshow("z",dilated_res)
 cv.waitKey(0)
 

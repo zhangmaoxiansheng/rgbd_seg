@@ -143,8 +143,8 @@ class PSPNet101(PSPNet):
                         input_shape=input_shape, weights=weights)
 
 def using_depth_refined(img,thres = 215):
-    #large than 200, smaller than 50 = 0
-    ret,thresh1 = cv.threshold(img,215,255,cv.THRESH_TOZERO_INV)
+    #large than thres, smaller than 50 = 0
+    ret,thresh1 = cv.threshold(img,thres,255,cv.THRESH_TOZERO_INV)
     ret2,thresh2 = cv.threshold(thresh1,50,255,cv.THRESH_BINARY)
     thresh3 = cv.resize(thresh2,(768,636))
     dilated_res = cv.dilate(thresh3,(5,5))
@@ -152,12 +152,14 @@ def using_depth_refined(img,thres = 215):
     return dilated_res
 
 def test_res(cm,mask):
-    cm = cm.astype(np.uint8)
-    contours, hierarchy = cv.findContours(cm,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+    cm = cm.astype(np.uint16)
+    cm1 = cm.astype(np.uint8)
+    contours, hierarchy = cv.findContours(cm1,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
     max_area = 0
     index = 0
     if len(contours) == 0:
-        return cm,0
+        #print("refine died")
+        return cm1,0
 
     for i in range(0,len(contours)):
         area = cv.contourArea(contours[i])
@@ -165,25 +167,33 @@ def test_res(cm,mask):
             max_area = area
             index = i
     final_contours = contours[index]
-    x, y, w, h = cv.boundingRect(final_contours) 
+    x, y, w, h = cv.boundingRect(final_contours)
+    
     equal_ = cm[y:y+h,x:x+w] != mask[y:y+h,x:x+w]
     r = equal_.sum()
     #r = r - np.sum(mask[y:y+h,x:x+w] == 0)
     r = float(r)/(h*w)
-    if(r > 0.015):
-        head = int(h/5)
-        h = int(h-h/4)
+    if(r > 0.25):
+        #print("start to refine")
+        head = int(h/8)
+        h = int(h-h/3)
         d_w = int(0.2*w)
         if(x-d_w <= 0):
             d_w = x
         if(x+w+d_w >= cm.shape[1]):
             d_w = cm.shape[1] - 1 - x -w
+        if(y-head <0):
+            head = 0
+
         cm[y-head:y+h,x-d_w:x+w+d_w] = mask[y-head:y+h,x-d_w:x+w+d_w] + cm[y-head:y+h,x-d_w:x+w+d_w]
-        cm[cm > 0] = 255
-        cm = cv.erode(cm,(5,5))
-        cm = cv.dilate(cm,(5,5))
+        #cv.rectangle(cm1,(x-d_w,y-head),(x+w+d_w,y+h),(153,153,0), 5)
+       
+        cm1[cm > 0] = 255
+        cm1 = cv.erode(cm1,(5,5))
+        cm1 = cv.dilate(cm1,(5,5))
+    print(r)
         
-    return cm,r
+    return cm1,r
 def get_threshold(img,dep):
     index1,index2 = np.where(img>0)
 
@@ -198,7 +208,7 @@ def get_threshold(img,dep):
         X[i] = dep[index1[i],index2[i]]
     X = X[np.nonzero(X)]
     X = X.reshape(-1,1)
-    if( X is None):
+    if( X.size == 0):
         return 215
     km = KMeans(n_clusters=2)
 
@@ -209,8 +219,9 @@ def get_threshold(img,dep):
 
     n_clusters_ = len(np.unique(labels))
     #print n_clusters_
-    min_ = 255
+    min_ = 65535
     for i in range(n_clusters_):
+        print(cluster_centers[i])
         if(cluster_centers[i] < min_):
             min_ = cluster_centers[i]
             r_label = i
@@ -229,34 +240,34 @@ if __name__ == "__main__":
                                  'pspnet101_cityscapes',
                                  'pspnet101_voc2012'])
     parser.add_argument('-w', '--weights', type=str, default=None)
-    parser.add_argument('-i', '--input_path', type=str, default='./1_rgb/fid_244.png',
+    parser.add_argument('-i', '--input_path', type=str, default='./zmq2_4',
                         help='Path the input image')
-    parser.add_argument('-id','--input_depth_path',type=str,default='./1_depth/fid_244.png')
-    parser.add_argument('-g', '--glob_path', type=str, default='./1_rgb/*.png',
-                        help='Glob path for multiple images')
-    parser.add_argument('-gd','--glob_depth_path',type=str,default='./1_depth/*.png')
-    parser.add_argument('-o', '--output_path', type=str, default='./nxp/rgb1',
+    parser.add_argument('-th','--thres',type=int,default=2400)
+    parser.add_argument('-s','--start',type=int,default = 0)
+    parser.add_argument('-e','--end',type = int,default = 2000)
+    parser.add_argument('-o', '--output_path', type=str, default='./zmq2_4/nxp',
                         help='Path to output rgb')
-    parser.add_argument('-o1', '--output_path1', type=str, default='./nxp/dep1',
-                        help='Path to output depth')
-    parser.add_argument('--id', default="0")
+    parser.add_argument('--id', default="1")
     parser.add_argument('--input_size', type=int, default=500)
     parser.add_argument('-f', '--flip', type=bool, default=True,
                         help="Whether the network should predict on both image and flipped image.")
 
     args = parser.parse_args()
-
+    image_path = args.input_path
+    save_path = args.output_path 
+    start_frame = args.start
+    end_frame = args.end
     # Handle input and output args
-    images = glob(args.glob_path) if args.glob_path else [args.input_path,]
-    dep_images = glob(args.glob_depth_path) if args.glob_depth_path else[args.input_depth_path,] 
+    #images = glob(args.glob_path) if args.glob_path else [args.input_path,]
+    #dep_images = glob(args.glob_depth_path) if args.glob_depth_path else[args.input_depth_path,] 
     
-    images = zip(images,dep_images)
-    if args.glob_path:
-        fn, ext = splitext(args.output_path)
-        if ext:
-            parser.error("output_path should be a folder for multiple file input")
-        if not isdir(args.output_path):
-            os.mkdir(args.output_path)
+    #images = zip(images,dep_images)
+    # if args.glob_path:
+    #     fn, ext = splitext(args.output_path)
+    #     if ext:
+    #         parser.error("output_path should be a folder for multiple file input")
+    #     if not isdir(args.output_path):
+    #         os.mkdir(args.output_path)
 
     # Predict
     os.environ["CUDA_VISIBLE_DEVICES"] = args.id
@@ -284,15 +295,37 @@ if __name__ == "__main__":
             pspnet = PSPNet50(nb_classes=2, input_shape=(
                 768, 480), weights=args.weights)
 
-        for i, img_path in enumerate(images):
-            print("Processing image {} / {}".format(i+1,len(images)))
-            img = misc.imread(img_path[0], mode='RGB')
-            depth_img = cv.imread(img_path[1],0)
+        for i in range(start_frame,end_frame):
+            print("Processing image {} / {}".format(i,args.end))
+            img = misc.imread(image_path + "/rgb/fid_"+ str(i) + ".png" , mode='RGB')
+            depth_img = cv.imread(image_path + "/dep/fid_" + str(i) + ".png",-1)
+            
             cimg = misc.imresize(img, (args.input_size, args.input_size))
 
             #mask = using_depth_refined(depth_img)
             #img = cv.add(img,np.zeros(np.shape(img),dtype=np.uint8),mask=mask)
 
+            # if args.glob_path:
+            #     input_filename, ext = splitext(basename(img_path[0]))
+            #     print(input_filename)
+            #     if glob("./zmq1/nxp/"+input_filename+"_dep.png"):
+            #         print("pass")
+            #         continue
+            #     filename = join(args.output_path, input_filename)
+            #     #filename1 = join(args.output_path1,input_filename)
+            # else:
+            #     filename, ext = splitext(args.output_path)
+            dep_img = depth_img.astype(np.uint8)
+            threshold = args.thres
+            dep_img[depth_img > threshold] = 0
+            dep_img[depth_img <= threshold] = 255
+            dep_img[:,0:50] = 0
+            dep_img = cv.resize(dep_img,(768,636))
+            
+            #dep_img = dep_img.astype(np.uint8)
+            img = cv.add(img, np.zeros(np.shape(img), dtype=np.uint8), mask=dep_img)
+            #cv.imwrite("img" + str(i) + ".png",img)
+            
             probs = pspnet.predict(img, args.flip)
 
             cm = np.argmax(probs, axis=2)
@@ -300,39 +333,41 @@ if __name__ == "__main__":
 
             color_cm = utils.add_color(cm)
             # color cm is [0.0-1.0] img is [0-255]
-            alpha_blended = 0.5 * color_cm * 255 + 0.5 * img
+            #alpha_blended = 0.5 * color_cm * 255 + 0.5 * img
 
-            if args.glob_path:
-                input_filename, ext = splitext(basename(img_path[0]))
-                filename = join(args.output_path, input_filename)
-                filename1 = join(args.output_path1,input_filename)
-            else:
-                filename, ext = splitext(args.output_path)
-                filename1,ext = splitext(args.output_path1)
+            
+                #filename1,ext1 = splitext(args.output_path1)
 
             #img = cv.imread("fid_1.png",0)
             
             cm[cm != 15] = 0
             cm[cm == 15] = 1
-            cm = cm.astype(np.uint8)
+            # cm = cm.astype(np.uint16)
             
-            thresh = get_threshold(cm,depth_img)
-            print(thresh)
-            mask = using_depth_refined(depth_img,thresh)
+            # thresh = get_threshold(cm,depth_img)
+            # print(thresh)
+            # mask = using_depth_refined(depth_img,thresh)
             
-            cm = np.multiply(cm,mask)
             
-            cm,r = test_res(cm,mask)
-            cm = cv.medianBlur(cm,5)
+            # cm = np.multiply(cm,mask)
             
-            cm_dep = cv.resize(cm,(512,424))
-            nxp_img = cv.add(img, np.zeros(np.shape(img), dtype=np.uint8), mask=cm)
-            nxp_dep = cv.add(depth_img,np.zeros(np.shape(depth_img),dtype=np.uint8),mask=cm_dep)
-            print(r)
+            #cm1,r = test_res(cm,mask)
+            cm1 = cm.astype(np.uint8)
+            cm1[cm > 0] = 255
+            cm1 = cv.medianBlur(cm1,5)
+            
+            cm_dep = cv.resize(cm1,(512,424))
+            nxp_img = cv.add(img, np.zeros(np.shape(img), dtype=np.uint8), mask=cm1)
+            nxp_dep = cv.add(depth_img,np.zeros(np.shape(depth_img),dtype=np.uint16),mask=cm_dep)
             #cv.waitKey(0)
+            nxp_img = cv.cvtColor(nxp_img,cv.COLOR_RGB2BGR)
             
-            cv.imwrite(filename+"_res"+ext,nxp_img)
+            filename = save_path + "/fid_" + str(i)
+            
+
+            cv.imwrite(filename+"_res"+".png",nxp_img)
             #filename1 = "./nxp/dep"
-            cv.imwrite(filename1+"_res"+ext,nxp_dep)
-            cv.imwrite(filename1+"mask"+ext,cm)
+            cv.imwrite(filename+"_dep"+".png",nxp_dep)
+            #cv.imwrite(filename+"mask"+ext,cm1)
+            #cv.imwrite(filename+"clolor"+ext,color_cm)
             #scipy.io.savemat(filename + 'probs.mat', {'probs': pm, 'labels': cm})
